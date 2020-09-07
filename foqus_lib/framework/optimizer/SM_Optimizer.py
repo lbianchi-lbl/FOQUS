@@ -46,6 +46,15 @@ from itertools import product
 
 try:
     from pyomo.environ import *
+    # add direct imports (in addition to existing wildcard import)
+    # to make pylint happy without affecting the existing runtime behavior
+    from pyomo.environ import (
+        Var,
+        Objective,
+        ConstraintList,
+        Warmstart,
+        value,
+    )
     from pyomo.opt import SolverFactory
     import pyutilib.subprocess.GlobalData
     pyutilib.subprocess.GlobalData.DEFINE_SIGNAL_HANDLERS_DEFAULT = False
