@@ -141,7 +141,7 @@ def test_results_session_result_page_1():
     g.turbchkfreq = 0
     g.status = dict(unfinished=len(jids), finished=0, success=0)
     g.res_re = [0]*3 # NOTE: No idea what this is for..
-    g.res = [None]*3 # NOTE:??? HOLDER???  runListAsThread
+    g.res = [{}]*3 # NOTE:??? HOLDER???  runListAsThread
     g.res_fin = [-1]*3 # NOTE: runListAsThread
 
     g.solveListValTurbine(valueList=[jids],
