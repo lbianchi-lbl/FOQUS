@@ -1451,7 +1451,7 @@ class TurbineConfiguration():
             if n == None:
                 n = netloc
             if n != netloc:
-                errList("expecting same network location for all URLs")
+                errList.append("expecting same network location for all URLs")
         # If the user name, password, and URLs are entered correctly,
         # test the connection.  If the connection fails it could be for
         # a number of reasons to we'll just report the exception and

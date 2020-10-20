@@ -989,7 +989,7 @@ background: qlineargradient(spread:pad, x1: 0, y1: 0.5, x2: 1, y2: 0.5, stop: 0 
             self.dat.uqSimList.append(newdata)
             res = Results()
             res.uq_add_result(newdata)
-            self.dat.uqFilterResultsList(res)
+            self.dat.uqFilterResultsList.append(res)
 
             #print 'here1'
             self.updateSimTable()
