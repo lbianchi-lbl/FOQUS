@@ -24,16 +24,31 @@ import os
 import time
 import json
 import math
+import numpy as np
 import subprocess
 import logging
 import traceback
 import re
+from foqus_lib.framework.pymodel.pymodel import *
 from foqus_lib.framework.graph.nodeVars import *
 from foqus_lib.framework.graph.nodeModelTypes import nodeModelTypes
 from collections import OrderedDict
 from foqus_lib.framework.foqusOptions.optionList import optionList
 from foqus_lib.framework.sim.turbineConfiguration import TurbineInterfaceEx
 from foqus_lib.framework.at_dict.at_dict import AtDict
+from PyQt5.QtWidgets import QMessageBox
+from importlib import import_module
+
+# pylint: disable=import-error
+try:
+    # tensorflow should be installed, but is not required for non ML/AI models
+    import tensorflow as tf
+
+    load = tf.keras.models.load_model
+except:
+    pass  # errors will be thrown if tensorflow is called but not installed,
+    #  otherwise no error should be thrown so passing is fine
+# pylint: enable=import-error
 
 
 class NodeOptionSets:
@@ -41,7 +56,8 @@ class NodeOptionSets:
     NODE_OPTIONS = 1
     TURBINE_OPTIONS = 2
     SINTER_OPTIONS = 3
-    PLUGIN_OPTONS = 4
+    PLUGIN_OPTIONS = 4
+    ML_AI_OPTIONS = 5
 
 
 class PyCodeInterupt(Exception):
@@ -78,6 +94,97 @@ class NodeEx(foqusException):
         self.codeString[27] = "Can't read variable in results (see log)"
         self.codeString[50] = "Node script interupt exception"
         self.codeString[61] = "Unknow type string"
+
+
+class pymodel_ml_ai(pymodel):
+    def __init__(self, model):
+        pymodel.__init__(self)
+
+        # attempt to retrieve required information from loaded model, and set defaults otherwise
+        self.model = model
+
+        for i in range(np.shape(self.model.inputs[0])[1]):
+            try:
+                input_label = self.model.layers[1].input_labels[i]
+            except:
+                input_label = "x" + str(i + 1)
+            try:
+                input_min = self.model.layers[1].input_bounds[input_label][0]
+            except:
+                input_min = 0  # not necessarily a good default
+            try:
+                input_max = self.model.layers[1].input_bounds[input_label][1]
+            except:
+                input_max = 1e5  # not necessarily a good default
+
+            self.inputs[input_label] = NodeVars(
+                value=input_min,
+                vmin=input_min,
+                vmax=input_max,
+                vdflt=0.0,
+                unit="",
+                vst="pymodel",
+                vdesc="input var " + str(i + 1),
+                tags=[],
+                dtype=float,
+            )
+
+        for j in range(np.shape(self.model.outputs[0])[1]):
+            try:
+                output_label = self.model.layers[1].output_labels[j]
+            except:
+                output_label = "z" + str(j + 1)
+            try:
+                output_min = self.model.layers[1].output_bounds[output_label][0]
+            except:
+                output_min = 0  # not necessarily a good default
+            try:
+                output_max = self.model.layers[1].output_bounds[output_label][1]
+            except:
+                output_max = 1e5  # not necessarily a good default
+
+            self.outputs[output_label] = NodeVars(
+                value=output_min,
+                vmin=output_min,
+                vmax=output_max,
+                vdflt=0.0,
+                unit="",
+                vst="pymodel",
+                vdesc="output var " + str(j + 1),
+                tags=[],
+                dtype=float,
+            )
+
+        # check if user passed a model for normalized data - FOQUS will automatically scale/un-scale
+        try:  # if attribute exists, user has specified a model form
+            self.normalized = self.model.layers[1].normalized
+        except:  # otherwise user did not pass a normalized model
+            self.normalized = False
+
+    def run(self):
+        import numpy as np
+
+        if self.normalized is True:  # normalize inputs
+            inputs = [
+                (self.inputs[i].value - self.inputs[i].min)
+                / (self.inputs[i].max - self.inputs[i].min)
+                for i in self.inputs
+            ]
+        else:  # take actual input values
+            inputs = [self.inputs[i].value for i in self.inputs]
+        print(inputs)
+        # set output values to be generated from NN surrogate
+        outputs = self.model.predict(np.array(inputs, ndmin=2))[0]
+        outidx = 0
+        for j in self.outputs:
+            if self.normalized is True:  # un-normalize outputs
+                self.outputs[j].value = (
+                    outputs[outidx] * (self.outputs[j].max - self.outputs[j].min)
+                    + self.outputs[j].min
+                )
+            else:
+                self.outputs[j].value = outputs[outidx]
+            outidx += 1
 
 
 class Node:
@@ -469,7 +576,7 @@ class Node:
                         name,
                     )
 
-            # Add an extra output varialbe for simulation status
+            # Add an extra output variable for simulation status
             # I think this comes out of all simulation run through
             # SimSinter, but its not in the sinter config file.
             self.gr.output[self.name]["status"] = NodeVars(
@@ -485,6 +592,26 @@ class Node:
                         desc=item["description"],
                         optSet=NodeOptionSets.SINTER_OPTIONS,
                     )
+        elif self.modelType == nodeModelTypes.MODEL_ML_AI:
+            # link to pymodel class for ml/ai models
+            cwd = os.getcwd()
+            os.chdir(os.path.join(os.getcwd(), "user_ml_ai_models"))
+            try:  # see if custom layer script exists
+                module = import_module(str(self.modelName))  # contains CustomLayer
+                self.model = load(
+                    str(self.modelName) + ".h5",
+                    custom_objects={
+                        str(self.modelName): getattr(module, str(self.modelName))
+                    },
+                )
+            except:  # try to load model without custom layer
+                self.model = load(str(self.modelName) + ".h5")
+            os.chdir(cwd)  # reset to original working directory
+            inst = pymodel_ml_ai(self.model)
+            for vkey, v in inst.inputs.items():
+                self.gr.input[self.name][vkey] = v
+            for vkey, v in inst.outputs.items():
+                self.gr.output[self.name][vkey] = v
 
     def upadteSCDefaults(self, outfile=None):
         if outfile is None:
@@ -569,6 +696,8 @@ class Node:
             self.runPymodelPlugin()
         elif self.modelType == nodeModelTypes.MODEL_TURBINE:
             self.runTurbineCalc(retry=self.options["Retry"].value)
+        elif self.modelType == nodeModelTypes.MODEL_ML_AI:
+            self.runPymodelMLAI()
         else:
             # This shouldn't happen from the GUI there should
             # be no way to select an unknown model type.
@@ -959,3 +1088,36 @@ class Node:
             logging.getLogger("foqus." + __name__).error(
                 "Failed to kill session sid: {0} Exception: {1}".format(sid, str(e))
             )
+
+    def runPymodelMLAI(self):
+        """
+        Runs a Neural Network machine learning/artificial intelligence model.
+        """
+        # create a python model instance if needed
+        if not self.pyModel:
+            # load ml_ai_model and build pymodel class object
+            cwd = os.getcwd()
+            os.chdir(os.path.join(os.getcwd(), "user_ml_ai_models"))
+            try:  # see if custom layer script exists
+                module = import_module(str(self.modelName))  # contains CustomLayer
+                self.model = load(
+                    str(self.modelName) + ".h5",
+                    custom_objects={
+                        str(self.modelName): getattr(module, str(self.modelName))
+                    },
+                )
+            except:  # try to load model without custom layer
+                self.model = load(str(self.modelName) + ".h5")
+            os.chdir(cwd)  # reset to original working directory
+            self.pyModel = pymodel_ml_ai(self.model)
+        # set the instance inputs
+        for vkey, v in self.gr.input[self.name].items():
+            if vkey in self.pyModel.inputs:
+                self.pyModel.inputs[vkey].value = v.value
+        # run the model
+        self.pyModel.setNode(self)
+        self.pyModel.run()
+        # set the node outputs
+        for vkey, v in self.gr.output[self.name].items():
+            if vkey in self.pyModel.outputs:
+                v.value = self.pyModel.outputs[vkey].value
