@@ -37,7 +37,6 @@ def qtbot_params(request):
     }
 
 
-
 @pytest.fixture(scope="session")
 def main_window_params(request):
     cfg = request.config
