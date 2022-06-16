@@ -37,17 +37,6 @@ def qtbot_params(request):
     }
 
 
-@pytest.fixture(scope="class")
-def qtbot(request, qapp, qtbot_params) -> pytest_qt_extras.QtBot:
-    if sys.version_info < (3, 7):
-        pytest.skip("GUI tests are not available for Python 3.6 or lower")
-    _qtbot = pytest_qt_extras.QtBot(request, **qtbot_params)
-    with capture_exceptions() as exceptions:
-        yield _qtbot
-    if exceptions:
-        pytest.fail(format_captured_exceptions(exceptions))
-    # _qtbot.cleanup()
-
 
 @pytest.fixture(scope="session")
 def main_window_params(request):
@@ -60,8 +49,8 @@ def main_window_params(request):
     }
 
 
-@pytest.yield_fixture(scope="class")
-def main_window(foqus_session, qtbot, main_window_params):
+@pytest.fixture(scope="module")
+def main_window(foqus_session, main_window_params):
     from foqus_lib import foqus
 
     foqus.guiImport(mpl_backend="AGG")
@@ -85,7 +74,6 @@ def main_window(foqus_session, qtbot, main_window_params):
     main_win.app = QtWidgets.QApplication.instance()
     print(f"main_win.app={main_win.app}")
     # qtbot.add_widget(main_win)
-    qtbot.waitForWindowShown(main_win)
     print(f"main_win.app.activeWindow()={main_win.app.activeWindow()}")
     yield main_win
 
@@ -96,11 +84,23 @@ def main_window(foqus_session, qtbot, main_window_params):
         handle_closing_prompt
     ):
         main_win.close()
-    qtbot.cleanup()
 
 
 @pytest.fixture(scope="class")
-def uq_setup_view(main_window, flowsheet_session_file, qtbot):
+def qtbot(request, qapp, qtbot_params, main_window) -> pytest_qt_extras.QtBot:
+    if sys.version_info < (3, 7):
+        pytest.skip("GUI tests are not available for Python 3.6 or lower")
+    _qtbot = pytest_qt_extras.QtBot(request, **qtbot_params)
+    _qtbot.waitForWindowShown(main_window)
+    with capture_exceptions() as exceptions:
+        yield _qtbot
+    if exceptions:
+        pytest.fail(format_captured_exceptions(exceptions))
+    _qtbot.cleanup()
+
+
+@pytest.fixture(scope="class")
+def uq_setup_view(main_window, flowsheet_session_file):
     main_window.loadSessionFile(flowsheet_session_file, saveCurrent=False)
     main_window.uqSetupAction.trigger()
     return main_window.uqSetupFrame
