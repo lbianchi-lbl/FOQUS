@@ -83,6 +83,7 @@ def main_window(foqus_session, main_window_params):
         handle_closing_prompt
     ):
         main_win.close()
+    QtWidgets.QApplication.processEvents()
 
 
 @pytest.fixture(scope="class")
@@ -96,6 +97,7 @@ def qtbot(request, qapp, qtbot_params, main_window) -> pytest_qt_extras.QtBot:
     if exceptions:
         pytest.fail(format_captured_exceptions(exceptions))
     _qtbot.cleanup()
+    QtWidgets.QApplication.processEvents()
 
 
 @pytest.fixture(scope="class")
