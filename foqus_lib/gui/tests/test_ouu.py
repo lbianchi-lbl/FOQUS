@@ -26,22 +26,7 @@ from foqus_lib.gui.common.InputPriorTable import InputPriorTable
 from PyQt5.QtWidgets import QMessageBox
 
 
-@pytest.fixture(scope="class")
-def setup_frame_blank(main_window, request):
-    """
-    Sets up a blank OUU Frame.
-
-    Args:
-        main_window: FOQUS main GUI window. Instance of foqus_lib.gui.main.mainWindow.mainWindow.
-        request: pytest request.
-
-    Returns:
-        ouuSetupFrame: FOQUS OUU UI.
-    """
-    main_window.ouuSetupAction.trigger()
-    setup_frame: ouuSetupFrame = main_window.ouuSetupFrame
-    request.cls.frame = setup_frame
-    return setup_frame
+pytestmark = pytest.mark.gui
 
 
 def _accept_dialog(w):
@@ -56,7 +41,6 @@ def show_ouu_setup_frame(main_window):
     main_window.ouuSetupAction.trigger()
 
 
-@pytest.mark.usefixtures("setup_frame_blank")
 class TestOUU:
     ###############
 

@@ -48,14 +48,15 @@ def main_window_params(request):
     }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def main_window(foqus_session, main_window_params):
     from foqus_lib import foqus
 
     foqus.guiImport(mpl_backend="AGG")
+    app = QtWidgets.QApplication([])
 
+    QtWidgets.QApplication.processEvents()
     from foqus_lib.gui.main.mainWindow import mainWindow
-
     main_win = mainWindow(
         main_window_params["title"],
         main_window_params["width"],

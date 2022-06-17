@@ -49,13 +49,21 @@ def psuade_path():
     return Path(_psuade_path).resolve()
 
 
-@pytest.fixture(scope="module", params=["UQ/Rosenbrock.foqus"])
+@pytest.fixture(scope="session", params=["UQ/Rosenbrock.foqus"])
 def flowsheet_session_file(examples_dir, request):
     return str(examples_dir / "test_files" / request.param)
 
 
+@pytest.fixture(scope="session", autouse=True)
+# @pytest.fixture(scope="session")
+def _prelim_setup():
+    pass
+    from foqus_lib import foqus
+    foqus.guiImport(mpl_backend="AGG")
+
+
 @pytest.fixture(
-    scope="module",
+    scope="session",
     autouse=True,
 )
 def foqus_working_dir(request) -> Path:
@@ -80,7 +88,7 @@ def setting_working_dir(dest: Path) -> Path:
         _set_working_dir(initial_working_dir)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def foqus_session(foqus_working_dir, psuade_path):
     from foqus_lib.framework.session import session
 
