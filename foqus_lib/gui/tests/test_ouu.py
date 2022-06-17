@@ -51,21 +51,19 @@ def _accept_dialog(w):
     w.buttonBox.accepted.emit()
 
 
+@pytest.fixture(scope="module")
+def show_ouu_setup_frame(main_window):
+    main_window.ouuSetupAction.trigger()
+
+
 @pytest.mark.usefixtures("setup_frame_blank")
 class TestOUU:
-    frame: ouuSetupFrame = ...
     ###############
-    """
-    Simple test to check the very basic test- launching the FOQUS main window.
-    """
 
     @pytest.fixture(scope="class")
-    def launchWindow(self, qtbot):
-        qtbot.focused = self.frame
-
-    @pytest.mark.usefixtures("launchWindow")
-    def test_window(self):
-        assert True
+    def ouu_frame(self, qtbot, main_window, show_ouu_setup_frame):
+        qtbot.focused = main_window.ouuSetupFrame
+        return main_window.ouuSetupFrame
 
     ################
     """
@@ -109,7 +107,7 @@ class TestOUU:
         return timeout
 
     @pytest.fixture(scope="class")
-    def selectModel(self, qtbot, model_file, model_file_button_label):
+    def selectModel(self, qtbot, model_file, model_file_button_label, ouu_frame):
         """
         [Step-1] Select the model from an example file.
         TODO: The code below needs to be called through a function in ouuSetupFrame.py.
@@ -121,8 +119,6 @@ class TestOUU:
             model_file: (from fixture) location of the example model file.
             model_file_button_label: (from fixture) label for the radio button for selecting model file.
         """
-        ouu_frame = self.frame
-        qtbot.focused = ouu_frame
         fname = os.path.abspath(model_file)
         ouu_frame.filesDir, _ = os.path.split(fname)
         ouu_frame.modelFile_edit.setText(fname)
@@ -171,7 +167,7 @@ class TestOUU:
             qtbot.click(radio_button="Mean of G(Z1,Z2,Z3,Z4) with respect to Z3 and Z4")
 
     @pytest.fixture(scope="class")
-    def discreteVars(self, qtbot, sample_file):
+    def discreteVars(self, qtbot, sample_file, ouu_frame):
         """
         [Step-4] Set up the discrete variables from a simple example file.
 
@@ -182,7 +178,6 @@ class TestOUU:
         Returns:
             [type]: Discrete random variables (Z3).
         """
-        ouu_frame = self.frame
         qtbot.select_tab("UQ Setup")
 
         ouu_frame.filesDir, _ = os.path.split(sample_file)
@@ -222,25 +217,25 @@ class TestOUU:
     """
 
     @pytest.mark.usefixtures("selectModel")
-    def testModelSelection(self):
+    def testModelSelection(self, ouu_frame):
         """
         [Test-1] Test that the correct model input file is selected and
                  the radio button is selected, else the test fails.
         """
-        model_file = self.frame.modelFile_edit.text()
+        model_file = ouu_frame.modelFile_edit.text()
         assert os.path.basename(model_file) == "ouu_optdriver.in"
-        assert self.frame.modelFile_radio.isChecked()
+        assert ouu_frame.modelFile_radio.isChecked()
 
     @pytest.mark.usefixtures("setVariables")
-    def testVariables(self):
+    def testVariables(self, ouu_frame):
         """
         [Test-2] Test that the correct variables - Z1, Z2, Z3 - are set.
         """
-        fixed_text = self.frame.fixedCount_static.text()
-        x1_text = self.frame.x1Count_static.text()
-        x2_text = self.frame.x2Count_static.text()
-        x3_text = self.frame.x3Count_static.text()
-        x4_text = self.frame.x4Count_static.text()
+        fixed_text = ouu_frame.fixedCount_static.text()
+        x1_text = ouu_frame.x1Count_static.text()
+        x2_text = ouu_frame.x2Count_static.text()
+        x3_text = ouu_frame.x3Count_static.text()
+        x4_text = ouu_frame.x4Count_static.text()
         assert (
             fixed_text == "# Fixed: 0"
             and x1_text == "# Primary Opt Vars: 4"
@@ -250,23 +245,23 @@ class TestOUU:
         )
 
     @pytest.mark.usefixtures("selectOptimizer")
-    def testOptimizer(self):
+    def testOptimizer(self, ouu_frame):
         """
         [Test-3] Test that BOBYQA is selected as the optimizer.
         """
-        assert self.frame.mean_radio.isChecked()
-        assert self.frame.primarySolver_combo.currentText() == "BOBYQA"
+        assert ouu_frame.mean_radio.isChecked()
+        assert ouu_frame.primarySolver_combo.currentText() == "BOBYQA"
         assert (
-            self.frame.secondarySolver_combo.currentText()
+            ouu_frame.secondarySolver_combo.currentText()
             == "Use model as optimizer: min_Z2 G(Z1,Z2,Z3,Z4)"
         )
 
-    def testRandomVars(self, discreteVars):
+    def testRandomVars(self, discreteVars, ouu_frame):
         """
         [Test-4] Test that the discrete variables are selected appropriately.
         """
         n_inps = discreteVars.shape[1]
-        n_vars = len(self.frame.input_table.getUQDiscreteVariables()[0])
+        n_vars = len(ouu_frame.input_table.getUQDiscreteVariables()[0])
         assert n_inps == n_vars
 
     def testRunOUU(self, runUntilConfirmationDialog):
