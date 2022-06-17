@@ -59,6 +59,7 @@ def flowsheet_session_file(examples_dir, request):
 def _prelim_setup():
     pass
     from foqus_lib import foqus
+
     foqus.guiImport(mpl_backend="AGG")
 
 
