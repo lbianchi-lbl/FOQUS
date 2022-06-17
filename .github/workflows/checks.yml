@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - '*_rel'
+      - debug-pytest-qt
   repository_dispatch:
     # to run this, send a POST API call at repos/<user>/<repo>/dispatches with the specified event_type
     # e.g. `gh repos/CCSI-Toolset/FOQUS/dispatches -F event_type=ci_run_tests`
