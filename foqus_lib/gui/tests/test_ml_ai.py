@@ -22,7 +22,7 @@ def flowsheet_session_file(examples_dir: Path, request) -> Path:
     return examples_dir / request.param
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def models_dir(
     foqus_working_dir: Path,
 ) -> Path:
@@ -31,7 +31,7 @@ def models_dir(
 
 
 @pytest.fixture(
-    scope="module",
+    scope="session",
     autouse=True,
 )
 def install_ml_ai_model_files(examples_dir: Path, models_dir: Path) -> Path:
@@ -52,7 +52,7 @@ def install_ml_ai_model_files(examples_dir: Path, models_dir: Path) -> Path:
     yield models_dir
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def model_files(
     models_dir: Path,
     suffixes: Tuple[str] = (".py", ".h5"),
