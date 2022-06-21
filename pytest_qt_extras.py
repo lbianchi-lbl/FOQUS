@@ -1652,8 +1652,7 @@ class QtBot(pytestqt_plugin.QtBot):
 
     waiting_for_modal = intercepting_modal
 
-    @contextlib.contextmanager
-    def waiting_for_dialog(self, timeout=0, dialog_cls=W.QMessageBox) -> _DialogProxy:
+    def wait_for_dialog(self, timeout=0, dialog_cls=W.QMessageBox) -> _DialogProxy:
         signal = self._signals.dialogDisplay
 
         def dispatch(modal: dialog_cls):
@@ -1667,7 +1666,7 @@ class QtBot(pytestqt_plugin.QtBot):
             with self.wait_signal(signal, timeout=timeout) as blocker:
                 pass
             dialog_info_for_checking: _DialogProxy = blocker.args[0]
-            yield dialog_info_for_checking
+        return dialog_info_for_checking
 
     def cleanup(self):
         self._focus_stack.clear()

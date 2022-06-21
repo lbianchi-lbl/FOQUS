@@ -190,10 +190,10 @@ class TestOUU:
         qtbot.select_tab("Launch/Progress")
 
         qtbot.click(button="Run OUU")
-        with qtbot.waiting_for_dialog(
+        dialog_info = qtbot.wait_for_dialog(
             dialog_cls=QtWidgets.QMessageBox, timeout=exec_timeout
-        ) as dialog:
-            yield dialog
+        )
+        return dialog_info
 
     ###################
     """
