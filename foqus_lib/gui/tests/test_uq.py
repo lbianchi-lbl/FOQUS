@@ -14,13 +14,7 @@ import pytest
 pytestmark = pytest.mark.gui
 
 
-
-@pytest.fixture(
-    scope="class",
-    params=[
-        "test_files/UQ/Rosenbrock.foqus"
-    ]
-)
+@pytest.fixture(scope="class", params=["test_files/UQ/Rosenbrock.foqus"])
 def session_file_path(examples_dir: Path, request) -> Path:
     return examples_dir / request.param
 
@@ -90,7 +84,7 @@ class TestUQ:
             qtbot.select_row(0)
             qtbot.using(column="Launch").click()
             analyze_button = qtbot.locate_widget(column="Analyze")
-        
+
         def analysis_is_available():
             return analyze_button.isEnabled()
 
