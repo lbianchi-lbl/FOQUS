@@ -100,10 +100,3 @@ def qtbot(request, qapp, qtbot_params, main_window) -> pytest_qt_extras.QtBot:
         pytest.fail(format_captured_exceptions(exceptions))
     _qtbot.cleanup()
     QtWidgets.QApplication.processEvents()
-
-
-@pytest.fixture(scope="class")
-def uq_setup_view(main_window, flowsheet_session_file):
-    main_window.loadSessionFile(flowsheet_session_file, saveCurrent=False)
-    main_window.uqSetupAction.trigger()
-    return main_window.uqSetupFrame

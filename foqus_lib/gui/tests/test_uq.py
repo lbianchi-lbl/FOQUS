@@ -1,3 +1,4 @@
+from pathlib import Path
 import time
 import typing
 from PyQt5 import QtWidgets, QtCore
@@ -13,21 +14,33 @@ import pytest
 pytestmark = pytest.mark.gui
 
 
-@pytest.fixture(scope="class")
-def setup_frame_blank(main_window, flowsheet_session_file, request):
-    main_window.loadSessionFile(flowsheet_session_file, saveCurrent=False)
+
+@pytest.fixture(
+    scope="class",
+    params=[
+        "test_files/UQ/Rosenbrock.foqus"
+    ]
+)
+def session_file_path(examples_dir: Path, request) -> Path:
+    return examples_dir / request.param
+
+
+@pytest.fixture(
+    scope="class",
+)
+def start_uq_session(main_window, session_file_path, qtbot):
+    qtbot.focused = main_window
+    main_window.loadSessionFile(str(session_file_path), saveCurrent=False)
     main_window.uqSetupAction.trigger()
-    setup_frame: uqSetupFrame = main_window.uqSetupFrame
-    request.cls.frame = setup_frame
-    return setup_frame
 
 
-class _HasAttributesSetByFixture:
-    frame: uqSetupFrame = ...
-
-    @property
-    def analysis_dialog(self) -> typing.Union[None, AnalysisDialog]:
-        return self.__class__.frame._analysis_dialog
+@pytest.fixture(
+    scope="class",
+)
+def setup_frame(main_window, qtbot) -> uqSetupFrame:
+    frame = main_window.uqSetupFrame
+    qtbot.focused = frame
+    return frame
 
 
 def _accept_dialog(w):
@@ -42,11 +55,10 @@ class RSCombinations:
     poly_quadratic = "poly_quadratic"
 
 
-@pytest.mark.usefixtures("setup_frame_blank")
-class TestUQ(_HasAttributesSetByFixture):
+@pytest.mark.usefixtures("start_uq_session")
+class TestUQ:
     @pytest.fixture(scope="class")
     def generate_samples(self, qtbot):
-        qtbot.focused = self.frame
         with qtbot.waiting_for_modal(handler=_accept_dialog):
             qtbot.take_screenshot("samples-modal")
             qtbot.click(button="Add New...")
@@ -65,39 +77,47 @@ class TestUQ(_HasAttributesSetByFixture):
             qtbot.click(button="Generate Samples")
             qtbot.click(button="Done")
 
-    def test_generate_samples(self, qtbot, generate_samples):
-        table = self.frame.simulationTable
-        assert table.rowCount() == 1
+    @pytest.fixture(scope="class")
+    def simulation_table(self, setup_frame):
+        return setup_frame.simulationTable
+
+    def test_generate_samples(self, qtbot, generate_samples, simulation_table):
+        assert simulation_table.rowCount() == 1
 
     @pytest.fixture(scope="class")
-    def run_simulation(self, qtbot):
-        with qtbot.focusing_on(self.frame.simulationTable):
+    def run_simulation(self, qtbot, simulation_table, setup_frame):
+        with qtbot.focusing_on(simulation_table):
             qtbot.select_row(0)
-            with qtbot.waiting_for_modal(timeout=90_000):
-                qtbot.using(column="Launch").click()
+            qtbot.using(column="Launch").click()
+            analyze_button = qtbot.locate_widget(column="Analyze")
+        
+        def analysis_is_available():
+            return analyze_button.isEnabled()
+
+        qtbot.wait_until(analysis_is_available, timeout=30_000)
 
     @pytest.mark.usefixtures("run_simulation")
-    def test_after_running_simulation(self, qtbot):
-        assert len(self.frame.dat.uqSimList) == 1
+    def test_after_running_simulation(self, setup_frame):
+        assert len(setup_frame.dat.uqSimList) == 1
 
     @pytest.fixture(scope="class")
-    def start_analysis(self, qtbot):
+    def analysis_dialog(self, qtbot, setup_frame, simulation_table):
         def has_dialog():
-            return self.analysis_dialog is not None
+            return setup_frame._analysis_dialog is not None
 
-        with qtbot.focusing_on(self.frame.simulationTable):
+        with qtbot.focusing_on(simulation_table):
             qtbot.select_row(0)
             qtbot.using(column="Analyze").click()
-
         qtbot.wait_until(has_dialog, timeout=10_000)
 
-    @pytest.mark.usefixtures("start_analysis")
-    def test_analysis_dialog(self, qtbot):
-        assert self.analysis_dialog is not None
+        return setup_frame._analysis_dialog
+
+    def test_analysis_dialog(self, analysis_dialog):
+        assert analysis_dialog is not None
 
     @pytest.fixture(scope="class")
-    def setup_analysis_dialog_expert(self, qtbot, start_analysis):
-        qtbot.focused = frame = self.analysis_dialog
+    def setup_analysis_dialog_expert(self, qtbot, analysis_dialog):
+        qtbot.focused = frame = analysis_dialog
         qtbot.click(button="Mode: Wizard (Click for Expert Mode)")
         with qtbot.focusing_on(group_box="Analysis"), qtbot.taking_screenshots():
             qtbot.using(combo_box="Select Output under Analysis").set_option(
