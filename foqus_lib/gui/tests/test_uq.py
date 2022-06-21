@@ -79,16 +79,19 @@ class TestUQ:
         assert simulation_table.rowCount() == 1
 
     @pytest.fixture(scope="class")
-    def run_simulation(self, qtbot, simulation_table, setup_frame):
+    def run_simulation(self, qtbot, simulation_table, setup_frame, timeout_ms=30_000):
         with qtbot.focusing_on(simulation_table):
             qtbot.select_row(0)
-            qtbot.using(column="Launch").click()
+            launch_button = qtbot.locate_widget(column="Launch")
             analyze_button = qtbot.locate_widget(column="Analyze")
+            with qtbot.waiting_for_modal(timeout=timeout_ms):
+                # NOTE: waiting_for_modal() seems to be needed for macOS, or it will hang indefinitely
+                launch_button.click()
 
         def analysis_is_available():
             return analyze_button.isEnabled()
 
-        qtbot.wait_until(analysis_is_available, timeout=30_000)
+        qtbot.wait_until(analysis_is_available, timeout=timeout_ms)
 
     @pytest.mark.usefixtures("run_simulation")
     def test_after_running_simulation(self, setup_frame):
