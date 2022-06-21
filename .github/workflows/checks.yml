@@ -80,6 +80,7 @@ jobs:
       # uncomment this to debug Qt initialization errors
       # QT_DEBUG_PLUGINS: '1'
       MPLBACKEND: AGG
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v2
       - name: Set up Conda
